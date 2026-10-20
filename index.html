@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sudagaran Student Achievements</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- jsPDF & AutoTable untuk PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              navy: '#152B4A',
+              blue: '#315EE8',
+              light: '#f1f5f9'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { background-color: #f8fafc; font-family: 'Inter', sans-serif; }
+    .loader { border-top-color: #315EE8; -webkit-animation: spinner 1.5s linear infinite; animation: spinner 1.5s linear infinite; }
+    @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .hide { display: none !important; }
+    /* Scrollbar minimal */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="text-slate-800 h-screen flex overflow-hidden">
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+
+  <!-- LOADING OVERLAY -->
+  <div id="global-loader" class="fixed inset-0 bg-white/80 z-[100] flex flex-col justify-center items-center hide">
+    <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
+    <h2 class="text-center text-brand-navy text-xl font-semibold">Memproses...</h2>
+  </div>
+
+  <!-- APP WRAPPER -->
+  <div id="app-wrapper" class="w-full h-full flex hide">
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="bg-brand-navy text-white w-64 flex-shrink-0 flex flex-col transition-all duration-300">
+      <div class="p-6 flex items-center justify-center border-b border-white/10">
+        <img src="https://i.ibb.co.com/vCKNHYDW/logo-sekolah1.png" alt="Logo" class="h-12 bg-white rounded p-1 mr-3">
+        <div>
+          <h1 class="font-bold text-sm leading-tight">SD Sudagaran</h1>
+          <p class="text-[10px] text-blue-200">Student Achievements</p>
+        </div>
+      </div>
+      <nav id="nav-menu" class="flex-1 py-4 flex flex-col gap-1 px-3 overflow-y-auto"></nav>
+      <div class="p-4 border-t border-white/10">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-full bg-brand-blue flex items-center justify-center text-white font-bold" id="user-avatar">A</div>
+          <div>
+            <p class="text-sm font-semibold truncate w-32" id="user-name-display">-</p>
+            <p class="text-xs text-blue-200 uppercase" id="user-role-display">-</p>
+          </div>
+        </div>
+        <button onclick="app.logout()" class="w-full py-2 text-sm text-red-300 hover:text-white hover:bg-red-500/20 rounded transition flex items-center justify-center gap-2">
+          <i class="fas fa-sign-out-alt"></i> Keluar
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col h-full bg-slate-50 relative overflow-hidden">
+      <!-- Topbar Mobile Toggle -->
+      <header class="md:hidden bg-white h-16 border-b flex items-center px-4 justify-between">
+        <img src="https://i.ibb.co.com/vCKNHYDW/logo-sekolah1.png" class="h-8">
+        <button onclick="document.getElementById('sidebar').classList.toggle('-ml-64')" class="text-brand-navy p-2">
+          <i class="fas fa-bars text-xl"></i>
+        </button>
+      </header>
+
+      <!-- View Container -->
+      <div id="view-container" class="flex-1 overflow-y-auto p-4 md:p-8">
+        <!-- Views will be injected here -->
+      </div>
+    </main>
+  </div>
+
+  <!-- LOGIN VIEW -->
+  <div id="login-view" class="w-full h-full flex items-center justify-center bg-brand-light">
+    <div class="bg-white p-8 rounded-xl shadow-xl w-full max-w-md border border-slate-100">
+      <div class="text-center mb-8">
+        <img src="https://i.ibb.co.com/vCKNHYDW/logo-sekolah1.png" alt="Logo" class="h-20 mx-auto mb-4">
+        <h2 class="text-2xl font-bold text-brand-navy">Portal Prestasi Siswa</h2>
+        <p class="text-slate-500 text-sm">Masuk dengan NIS / Akun Admin Anda</p>
+      </div>
+      <form id="login-form" onsubmit="app.handleLogin(event)">
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-slate-700 mb-1">NIS / Username</label>
+          <input type="text" id="login-nis" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-brand-blue outline-none transition">
+        </div>
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Kata Sandi</label>
+          <input type="password" id="login-password" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-brand-blue outline-none transition">
+        </div>
+        <button type="submit" class="w-full bg-brand-blue text-white font-semibold py-2.5 rounded-lg hover:bg-blue-700 transition shadow-lg shadow-blue-500/30">
+          Masuk <i class="fas fa-arrow-right ml-2"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // --- KONFIGURASI APLIKASI ---
+    // GANTI URL INI SETELAH DEPLOY GOOGLE APPS SCRIPT
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxrMtaDnA5G8YTANFFsj_trUoqxuposAoZhmSwF9ZsO8HaWavPzf3B6lfb5NO3vbaRPjw/exec"; 
+
+    // --- STATE MANAGEMENT ---
+    const app = {
+      state: {
+        token: sessionStorage.getItem('token') || null,
+        user: JSON.parse(sessionStorage.getItem('user')) || null,
+        currentView: '',
+        data: {
+          achievements: [],
+          stats: null
+        }
+      },
+
+      // --- INIT ---
+      init: function() {
+        if (this.state.token && this.state.user) {
+          this.setupLayout();
+          if (this.state.user.role === 'admin') this.navigate('admin-dashboard');
+          else this.navigate('student-dashboard');
+        } else {
+          document.getElementById('login-view').classList.remove('hide');
+          document.getElementById('app-wrapper').classList.add('hide');
+        }
+      },
+
+      // --- API WRAPPER ---
+      api: async function(action, data = {}) {
+        this.showLoader();
+        try {
+          const payload = { action, data, token: this.state.token };
+          const response = await fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' } // text/plain prevents CORS preflight in simple cases
+          });
+          const res = await response.json();
+          if (res.status === 'error') throw new Error(res.message);
+          this.hideLoader();
+          return res.data;
+        } catch (error) {
+          this.hideLoader();
+          this.toast(error.message, 'error');
+          if (error.message.includes('Sesi tidak valid')) this.logout();
+          throw error;
+        }
+      },
+
+      // --- AUTHENTICATION ---
+      handleLogin: async function(e) {
+        e.preventDefault();
+        const nis = document.getElementById('login-nis').value;
+        const password = document.getElementById('login-password').value;
+
+        try {
+          const res = await this.api('login', { nis, password });
+          this.state.token = res.token;
+          this.state.user = res.user;
+          sessionStorage.setItem('token', res.token);
+          sessionStorage.setItem('user', JSON.stringify(res.user));
+          
+          this.toast('Berhasil masuk!', 'success');
+          this.setupLayout();
+          
+          if (this.state.user.role === 'admin') this.navigate('admin-dashboard');
+          else this.navigate('student-dashboard');
+        } catch (err) {
+          // Error handled by api wrapper
+        }
+      },
+
+      logout: function() {
+        sessionStorage.clear();
+        this.state.token = null;
+        this.state.user = null;
+        document.getElementById('login-view').classList.remove('hide');
+        document.getElementById('app-wrapper').classList.add('hide');
+        document.getElementById('login-form').reset();
+      },
+
+      // --- UI HELPERS ---
+      setupLayout: function() {
+        document.getElementById('login-view').classList.add('hide');
+        document.getElementById('app-wrapper').classList.remove('hide');
+        
+        document.getElementById('user-name-display').textContent = this.state.user.nama;
+        document.getElementById('user-role-display').textContent = this.state.user.role;
+        document.getElementById('user-avatar').textContent = this.state.user.nama.charAt(0);
+
+        const nav = document.getElementById('nav-menu');
+        nav.innerHTML = '';
+        
+        const menuItems = this.state.user.role === 'admin' ? [
+          { id: 'admin-dashboard', icon: 'fa-chart-pie', text: 'Dasbor' },
+          { id: 'admin-verify', icon: 'fa-check-double', text: 'Verifikasi & Data' },
+          { id: 'admin-report', icon: 'fa-file-pdf', text: 'Laporan & Unduh' }
+        ] : [
+          { id: 'student-dashboard', icon: 'fa-list', text: 'Pengajuan Saya' },
+          { id: 'student-form', icon: 'fa-plus-circle', text: 'Tambah Prestasi' }
+        ];
+
+        menuItems.forEach(item => {
+          nav.innerHTML += `
+            <button onclick="app.navigate('${item.id}')" id="nav-${item.id}" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition text-left text-sm font-medium">
+              <i class="fas ${item.icon} w-5 text-center"></i> ${item.text}
+            </button>
+          `;
+        });
+      },
+
+      navigate: function(viewId) {
+        this.state.currentView = viewId;
+        
+        // Update Active Nav
+        document.querySelectorAll('#nav-menu button').forEach(btn => {
+          btn.classList.remove('bg-brand-blue', 'text-white');
+          btn.classList.add('text-slate-300');
+        });
+        const activeBtn = document.getElementById(`nav-${viewId}`);
+        if(activeBtn) {
+          activeBtn.classList.remove('text-slate-300');
+          activeBtn.classList.add('bg-brand-blue', 'text-white');
+        }
+
+        // Render View
+        const container = document.getElementById('view-container');
+        container.innerHTML = ''; // Clear
+
+        switch(viewId) {
+          case 'student-dashboard': this.renderStudentDashboard(container); break;
+          case 'student-form': this.renderStudentForm(container); break;
+          case 'admin-dashboard': this.renderAdminDashboard(container); break;
+          case 'admin-verify': this.renderAdminData(container); break;
+          case 'admin-report': this.renderAdminReport(container); break;
+        }
+      },
+
+      showLoader: () => document.getElementById('global-loader').classList.remove('hide'),
+      hideLoader: () => document.getElementById('global-loader').classList.add('hide'),
+      
+      toast: function(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const bg = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-brand-blue';
+        const icon = type === 'success' ? 'fa-check' : type === 'error' ? 'fa-times' : 'fa-info';
+        
+        const toast = document.createElement('div');
+        toast.className = `${bg} text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 transform transition-all duration-300 translate-x-full opacity-0`;
+        toast.innerHTML = `<i class="fas ${icon}"></i> <span>${message}</span>`;
+        
+        container.appendChild(toast);
+        
+        setTimeout(() => { toast.classList.remove('translate-x-full', 'opacity-0'); }, 10);
+        setTimeout(() => {
+          toast.classList.add('translate-x-full', 'opacity-0');
+          setTimeout(() => toast.remove(), 300);
+        }, 4000);
+      },
+
+      // --- STUDENT VIEWS ---
+      renderStudentDashboard: async function(container) {
+        container.innerHTML = `
+          <div class="flex justify-between items-center mb-6">
+            <div>
+              <h2 class="text-2xl font-bold text-brand-navy">Pengajuan Saya</h2>
+              <p class="text-slate-500 text-sm">Daftar prestasi yang telah Anda laporkan.</p>
+            </div>
+            <button onclick="app.navigate('student-form')" class="bg-brand-blue text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition">
+              <i class="fas fa-plus mr-1"></i> Tambah
+            </button>
+          </div>
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm text-slate-600">
+                <thead class="bg-slate-50 text-slate-700 border-b">
+                  <tr>
+                    <th class="px-6 py-4 font-semibold">Tgl Pengajuan</th>
+                    <th class="px-6 py-4 font-semibold">Nama Event</th>
+                    <th class="px-6 py-4 font-semibold">Capaian</th>
+                    <th class="px-6 py-4 font-semibold">Tingkat</th>
+                    <th class="px-6 py-4 font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="student-table-body" class="divide-y divide-slate-100">
+                  <tr><td colspan="5" class="text-center py-8 text-slate-400">Memuat data...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+
+        try {
+          const data = await this.api('getStudentAchievements');
+          const tbody = document.getElementById('student-table-body');
+          if (data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-400">Belum ada pengajuan prestasi.</td></tr>`;
+            return;
+          }
+
+          tbody.innerHTML = data.map(item => `
+            <tr class="hover:bg-slate-50">
+              <td class="px-6 py-4 whitespace-nowrap">${item.CreatedAt.split(' ')[0]}</td>
+              <td class="px-6 py-4 font-medium text-slate-800">${item.NamaEvent}</td>
+              <td class="px-6 py-4">${item.Capaian}</td>
+              <td class="px-6 py-4">${item.TingkatKejuaraan}</td>
+              <td class="px-6 py-4">
+                <span class="px-3 py-1 rounded-full text-xs font-semibold ${this.getStatusColor(item.StatusVerifikasi)}">
+                  ${item.StatusVerifikasi}
+                </span>
+                ${item.CatatanVerifikasi ? `<p class="text-xs text-red-500 mt-1"><i class="fas fa-exclamation-circle"></i> ${item.CatatanVerifikasi}</p>` : ''}
+              </td>
+            </tr>
+          `).join('');
+        } catch (e) {
+          // error handled
+        }
+      },
+
+      getStatusColor: function(status) {
+        switch(status) {
+          case 'Terverifikasi': return 'bg-green-100 text-green-700';
+          case 'Menunggu Verifikasi': return 'bg-amber-100 text-amber-700';
+          case 'Perlu Perbaikan': return 'bg-orange-100 text-orange-700';
+          case 'Ditolak': return 'bg-red-100 text-red-700';
+          default: return 'bg-slate-100 text-slate-700';
+        }
+      },
+
+      renderStudentForm: function(container) {
+        const u = this.state.user;
+        container.innerHTML = `
+          <div class="max-w-3xl mx-auto">
+            <button onclick="app.navigate('student-dashboard')" class="text-slate-500 hover:text-brand-navy mb-4 inline-flex items-center gap-2">
+              <i class="fas fa-arrow-left"></i> Kembali
+            </button>
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 md:p-8">
+              <h2 class="text-2xl font-bold text-brand-navy border-b pb-4 mb-6">Formulir Pengajuan Prestasi</h2>
+              
+              <form id="achievement-form" onsubmit="app.submitAchievement(event)">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <!-- Data Siswa (Readonly) -->
+                  <div class="bg-slate-50 p-4 rounded-lg md:col-span-2 border border-slate-100">
+                    <p class="text-xs text-slate-500 uppercase font-semibold mb-2">Data Siswa</p>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                      <div><span class="block text-slate-500">Nama:</span><span class="font-medium text-slate-800">${u.nama}</span></div>
+                      <div><span class="block text-slate-500">NIS:</span><span class="font-medium text-slate-800">${u.nis}</span></div>
+                      <div><span class="block text-slate-500">Kelas:</span><span class="font-medium text-slate-800">${u.kelas}</span></div>
+                    </div>
+                  </div>
+
+                  <!-- Form Fields -->
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Tahun Ajaran <span class="text-red-500">*</span></label>
+                    <select id="tahunAjaran" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-blue outline-none">
+                      <option value="2025/2026">2025/2026</option>
+                      <option value="2026/2027" selected>2026/2027</option>
+                      <option value="2027/2028">2027/2028</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Nama Event / Kejuaraan <span class="text-red-500">*</span></label>
+                    <input type="text" id="namaEvent" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-blue outline-none" placeholder="Contoh: Olimpiade Matematika Nasional">
+                  </div>
+                  
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Kategori <span class="text-red-500">*</span></label>
+                    <select id="kategori" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-blue outline-none">
+                      <option value="" disabled selected>Pilih Kategori</option>
+                      <option value="Akademik">Akademik</option>
+                      <option value="Non Akademik">Non Akademik</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Cabang Lomba <span class="text-red-500">*</span></label>
+                    <select id="cabangLomba" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-blue outline-none">
+                      <option value="" disabled selected>Pilih Cabang</option>
+                      <option value="Matematika">Matematika</option>
+                      <option value="IPA">IPA</option>
+                      <option value="Bahasa Inggris">Bahasa Inggris</option>
+                      <option value="Tahfiz">Tahfiz</option>
+                      <option value="Pidato">Pidato</option>
+                      <option value="Seni">Seni / Menggambar</option>
+                      <option value="Olahraga">Olahraga</option>
+                      <option value="Lainnya">Lainnya</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Tingkat Kejuaraan <span class="text-red-500">*</span></label>
+                    <select id="tingkat" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-blue outline-none">
+                      <option value="" disabled selected>Pilih Tingkat</option>
+                      <option value="Kecamatan">Kecamatan</option>
+                      <option value="Kabupaten/Kota">Kabupaten/Kota</option>
+                      <option value="Provinsi">Provinsi</option>
+                      <option value="Nasional">Nasional</option>
+                      <option value="Internasional">Internasional</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Capaian / Juara <span class="text-red-500">*</span></label>
+                    <select id="capaian" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-blue outline-none">
+                      <option value="" disabled selected>Pilih Capaian</option>
+                      <option value="Juara 1">Juara 1</option>
+                      <option value="Juara 2">Juara 2</option>
+                      <option value="Juara 3">Juara 3</option>
+                      <option value="Harapan 1">Harapan 1</option>
+                      <option value="Medali Emas">Medali Emas</option>
+                      <option value="Medali Perak">Medali Perak</option>
+                      <option value="Peserta">Peserta/Finalis</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Nama Penyelenggara <span class="text-red-500">*</span></label>
+                    <input type="text" id="penyelenggara" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-blue outline-none">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Jenis Penyelenggara <span class="text-red-500">*</span></label>
+                    <select id="jenisPenyelenggara" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-blue outline-none">
+                      <option value="Pemerintah">Pemerintah (Dinas/Kementerian)</option>
+                      <option value="Institusi Pendidikan">Institusi Pendidikan/Sekolah</option>
+                      <option value="Non Pemerintah">Non Pemerintah/Yayasan</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Tanggal Pelaksanaan <span class="text-red-500">*</span></label>
+                    <input type="date" id="tanggal" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-blue outline-none">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Lokasi Lomba (Kota)</label>
+                    <input type="text" id="lokasi" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-blue outline-none">
+                  </div>
+
+                  <!-- File Upload -->
+                  <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Sertifikat / Piagam (PDF/JPG/PNG) <span class="text-red-500">*</span></label>
+                    <div class="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:bg-slate-50 transition cursor-pointer" onclick="document.getElementById('fileInput').click()">
+                      <i class="fas fa-cloud-upload-alt text-3xl text-brand-blue mb-2"></i>
+                      <p class="text-sm font-medium text-slate-700" id="fileNameDisplay">Klik untuk memilih file</p>
+                      <p class="text-xs text-slate-500 mt-1">Maks. ukuran 5MB (Batas aman API)</p>
+                      <input type="file" id="fileInput" accept=".pdf,image/png,image/jpeg" class="hidden" onchange="app.handleFileSelect(event)">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex justify-end gap-3 border-t pt-6">
+                  <button type="button" onclick="app.navigate('student-dashboard')" class="px-6 py-2.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium transition">Batal</button>
+                  <button type="submit" class="px-6 py-2.5 rounded-lg bg-brand-blue text-white font-medium hover:bg-blue-700 transition shadow-lg shadow-blue-500/30 flex items-center gap-2">
+                    <i class="fas fa-paper-plane"></i> Kirim Pengajuan
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        `;
+      },
+
+      selectedFile: null,
+      handleFileSelect: function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // Validasi Ukuran (5MB untuk menjaga Payload limit GAS tidak timeout)
+        if (file.size > 5 * 1024 * 1024) {
+          this.toast('Ukuran file terlalu besar. Maksimal 5MB.', 'error');
+          e.target.value = '';
+          return;
+        }
+        
+        this.selectedFile = file;
+        document.getElementById('fileNameDisplay').innerHTML = `<span class="text-green-600 font-bold"><i class="fas fa-file-check"></i> ${file.name}</span>`;
+      },
+
+      submitAchievement: async function(e) {
+        e.preventDefault();
+        if (!this.selectedFile) {
+          this.toast('Silakan unggah file piagam/sertifikat terlebih dahulu.', 'error');
+          return;
+        }
+
+        // Convert file to Base64
+        const reader = new FileReader();
+        reader.readAsDataURL(this.selectedFile);
+        reader.onload = async () => {
+          const payload = {
+            tahunAjaran: document.getElementById('tahunAjaran').value,
+            namaEvent: document.getElementById('namaEvent').value,
+            kategori: document.getElementById('kategori').value,
+            cabangLomba: document.getElementById('cabangLomba').value,
+            tingkat: document.getElementById('tingkat').value,
+            capaian: document.getElementById('capaian').value,
+            penyelenggara: document.getElementById('penyelenggara').value,
+            jenisPenyelenggara: document.getElementById('jenisPenyelenggara').value,
+            tanggal: document.getElementById('tanggal').value,
+            lokasi: document.getElementById('lokasi').value,
+            fileName: this.selectedFile.name,
+            fileBase64: reader.result
+          };
+
+          try {
+            await this.api('submitAchievement', payload);
+            this.toast('Pengajuan berhasil dikirim!', 'success');
+            this.selectedFile = null;
+            this.navigate('student-dashboard');
+          } catch (err) {
+            // error handled
+          }
+        };
+      },
+
+      // --- ADMIN VIEWS ---
+      renderAdminDashboard: async function(container) {
+        container.innerHTML = `
+          <div class="mb-8">
+            <h2 class="text-2xl font-bold text-brand-navy">Dasbor Utama</h2>
+            <p class="text-slate-500 text-sm">Ringkasan data prestasi sekolah.</p>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" id="stats-cards">
+            <!-- Cards injected here -->
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <h3 class="font-semibold text-brand-navy mb-4">Akademik vs Non Akademik</h3>
+              <div class="relative h-64"><canvas id="chartKategori"></canvas></div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <h3 class="font-semibold text-brand-navy mb-4">Status Pengajuan</h3>
+              <div class="relative h-64"><canvas id="chartStatus"></canvas></div>
+            </div>
+          </div>
+        `;
+
+        try {
+          const stats = await this.api('getDashboardStats');
+          
+          const cardsHTML = `
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-brand-blue flex items-center justify-between">
+              <div><p class="text-sm text-slate-500 font-medium mb-1">Total Pengajuan</p><p class="text-3xl font-bold text-slate-800">${stats.totalPengajuan}</p></div>
+              <div class="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-brand-blue text-xl"><i class="fas fa-file-alt"></i></div>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-green-500 flex items-center justify-between">
+              <div><p class="text-sm text-slate-500 font-medium mb-1">Prestasi Terverifikasi</p><p class="text-3xl font-bold text-slate-800">${stats.terverifikasi}</p></div>
+              <div class="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center text-green-500 text-xl"><i class="fas fa-trophy"></i></div>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-amber-500 flex items-center justify-between">
+              <div><p class="text-sm text-slate-500 font-medium mb-1">Menunggu Verifikasi</p><p class="text-3xl font-bold text-slate-800">${stats.menunggu}</p></div>
+              <div class="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 text-xl"><i class="fas fa-clock"></i></div>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-purple-500 flex items-center justify-between">
+              <div><p class="text-sm text-slate-500 font-medium mb-1">Siswa Berprestasi</p><p class="text-3xl font-bold text-slate-800">${stats.siswaBerprestasi}</p></div>
+              <div class="w-12 h-12 bg-purple-50 rounded-full flex items-center justify-center text-purple-500 text-xl"><i class="fas fa-users"></i></div>
+            </div>
+          `;
+          document.getElementById('stats-cards').innerHTML = cardsHTML;
+
+          // Render Charts
+          new Chart(document.getElementById('chartKategori'), {
+            type: 'doughnut',
+            data: {
+              labels: ['Akademik', 'Non Akademik'],
+              datasets: [{ data: [stats.akademik, stats.nonAkademik], backgroundColor: ['#315EE8', '#f59e0b'], borderWidth: 0 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+          });
+
+          new Chart(document.getElementById('chartStatus'), {
+            type: 'bar',
+            data: {
+              labels: ['Terverifikasi', 'Menunggu', 'Perlu Perbaikan', 'Ditolak'],
+              datasets: [{ label: 'Jumlah', data: [stats.terverifikasi, stats.menunggu, stats.perluPerbaikan, stats.ditolak], backgroundColor: ['#22c55e', '#f59e0b', '#f97316', '#ef4444'], borderRadius: 6 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+          });
+
+        } catch (e) {}
+      },
+
+      renderAdminData: async function(container) {
+        container.innerHTML = `
+          <div class="mb-6">
+            <h2 class="text-2xl font-bold text-brand-navy">Data & Verifikasi</h2>
+            <p class="text-slate-500 text-sm">Kelola pengajuan prestasi siswa.</p>
+          </div>
+
+          <!-- Filters -->
+          <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 grid grid-cols-2 md:grid-cols-5 gap-3">
+            <select id="filter-tahun" class="px-3 py-2 border rounded text-sm outline-none" onchange="app.fetchAdminData()">
+              <option value="">Semua Tahun Ajaran</option>
+              <option value="2025/2026">2025/2026</option>
+              <option value="2026/2027">2026/2027</option>
+            </select>
+            <select id="filter-kategori" class="px-3 py-2 border rounded text-sm outline-none" onchange="app.fetchAdminData()">
+              <option value="">Semua Kategori</option>
+              <option value="Akademik">Akademik</option>
+              <option value="Non Akademik">Non Akademik</option>
+            </select>
+            <select id="filter-tingkat" class="px-3 py-2 border rounded text-sm outline-none" onchange="app.fetchAdminData()">
+              <option value="">Semua Tingkat</option>
+              <option value="Kecamatan">Kecamatan</option>
+              <option value="Kabupaten/Kota">Kabupaten/Kota</option>
+              <option value="Provinsi">Provinsi</option>
+              <option value="Nasional">Nasional</option>
+              <option value="Internasional">Internasional</option>
+            </select>
+            <select id="filter-status" class="px-3 py-2 border rounded text-sm outline-none" onchange="app.fetchAdminData()">
+              <option value="">Semua Status</option>
+              <option value="Menunggu Verifikasi" selected>Menunggu Verifikasi</option>
+              <option value="Terverifikasi">Terverifikasi</option>
+              <option value="Perlu Perbaikan">Perlu Perbaikan</option>
+              <option value="Ditolak">Ditolak</option>
+            </select>
+            <button onclick="app.resetFilters()" class="px-3 py-2 border border-slate-300 rounded text-sm hover:bg-slate-50 flex items-center justify-center gap-2">
+              <i class="fas fa-undo"></i> Reset Filter
+            </button>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm text-slate-600">
+                <thead class="bg-slate-50 text-slate-700 border-b">
+                  <tr>
+                    <th class="px-4 py-3 font-semibold">Tgl</th>
+                    <th class="px-4 py-3 font-semibold">Siswa</th>
+                    <th class="px-4 py-3 font-semibold">Kelas</th>
+                    <th class="px-4 py-3 font-semibold">Event & Tingkat</th>
+                    <th class="px-4 py-3 font-semibold">Status</th>
+                    <th class="px-4 py-3 font-semibold text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-table-body" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+          
+          <!-- Modal Detail -->
+          <div id="verify-modal" class="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 hide">
+             <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+                <div class="p-6 border-b flex justify-between items-center">
+                  <h3 class="text-xl font-bold text-brand-navy">Verifikasi Pengajuan</h3>
+                  <button onclick="document.getElementById('verify-modal').classList.add('hide')" class="text-slate-400 hover:text-slate-700 text-xl">&times;</button>
+                </div>
+                <div class="p-6 overflow-y-auto" id="modal-content"></div>
+             </div>
+          </div>
+        `;
+        
+        // Initial fetch with default "Menunggu Verifikasi" filter
+        this.fetchAdminData();
+      },
+
+      resetFilters: function() {
+        document.getElementById('filter-tahun').value = '';
+        document.getElementById('filter-kategori').value = '';
+        document.getElementById('filter-tingkat').value = '';
+        document.getElementById('filter-status').value = '';
+        this.fetchAdminData();
+      },
+
+      fetchAdminData: async function() {
+        const filters = {
+          tahunAjaran: document.getElementById('filter-tahun').value,
+          kategori: document.getElementById('filter-kategori').value,
+          tingkat: document.getElementById('filter-tingkat').value,
+          status: document.getElementById('filter-status').value
+        };
+
+        const tbody = document.getElementById('admin-table-body');
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-brand-blue"><i class="fas fa-spinner fa-spin mr-2"></i>Memuat...</td></tr>`;
+
+        try {
+          const data = await this.api('getAllAchievements', { filters });
+          this.state.data.achievements = data; // store globally for modal access
+
+          if (data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400">Tidak ada data ditemukan untuk filter ini.</td></tr>`;
+            return;
+          }
+
+          tbody.innerHTML = data.map(item => `
+            <tr class="hover:bg-slate-50">
+              <td class="px-4 py-3 whitespace-nowrap text-xs">${item.CreatedAt.split(' ')[0]}</td>
+              <td class="px-4 py-3 font-medium text-slate-800">${item.NamaSnapshot}<br><span class="text-xs text-slate-400 font-normal">${item.NIS}</span></td>
+              <td class="px-4 py-3 text-center">${item.KelasSnapshot}</td>
+              <td class="px-4 py-3">
+                <p class="font-medium text-slate-800 truncate max-w-[200px]" title="${item.NamaEvent}">${item.NamaEvent}</p>
+                <p class="text-xs text-slate-500">${item.Capaian} - ${item.TingkatKejuaraan}</p>
+              </td>
+              <td class="px-4 py-3">
+                <span class="px-2 py-1 rounded text-xs font-semibold ${this.getStatusColor(item.StatusVerifikasi)}">${item.StatusVerifikasi}</span>
+              </td>
+              <td class="px-4 py-3 text-right">
+                <button onclick="app.openVerifyModal('${item.ID}')" class="px-3 py-1.5 bg-brand-blue text-white text-xs rounded hover:bg-blue-700 transition shadow-sm">
+                  Detail / Proses
+                </button>
+              </td>
+            </tr>
+          `).join('');
+        } catch (e) {}
+      },
+
+      openVerifyModal: function(id) {
+        const item = this.state.data.achievements.find(a => a.ID === id);
+        if(!item) return;
+
+        const modal = document.getElementById('verify-modal');
+        const content = document.getElementById('modal-content');
+        
+        content.innerHTML = `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="bg-slate-50 p-4 rounded-lg border border-slate-100">
+              <p class="text-xs text-slate-500 uppercase font-semibold mb-2">Data Siswa</p>
+              <p class="font-medium text-slate-800">${item.NamaSnapshot} (${item.NIS})</p>
+              <p class="text-sm text-slate-600">Kelas: ${item.KelasSnapshot}</p>
+              <p class="text-sm text-slate-600 mt-2">Tahun Ajaran: <span class="font-medium">${item.TahunAjaran}</span></p>
+            </div>
+            <div class="bg-slate-50 p-4 rounded-lg border border-slate-100">
+              <p class="text-xs text-slate-500 uppercase font-semibold mb-2">Detail Kejuaraan</p>
+              <p class="font-medium text-brand-blue">${item.NamaEvent}</p>
+              <p class="text-sm text-slate-600">${item.Kategori} - ${item.CabangLomba}</p>
+              <p class="text-sm text-slate-600 font-semibold mt-1">${item.Capaian} - Tingkat ${item.TingkatKejuaraan}</p>
+              <p class="text-xs text-slate-500 mt-1">Penyelenggara: ${item.NamaPenyelenggara}</p>
+              <p class="text-xs text-slate-500">Tanggal: ${item.TanggalPelaksanaan}</p>
+            </div>
+          </div>
+
+          <div class="mb-6">
+             <p class="text-sm font-semibold text-slate-700 mb-2">Dokumen Pendukung</p>
+             <a href="${item.DriveFileUrl}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-brand-blue border border-blue-200 rounded-lg hover:bg-blue-100 transition">
+               <i class="fas fa-external-link-alt"></i> Buka ${item.FileName}
+             </a>
+             <p class="text-xs text-slate-400 mt-1">*Buka menggunakan akun admin sekolah.</p>
+          </div>
+
+          <hr class="mb-6 border-slate-200">
+
+          <div class="space-y-4">
+             <div>
+               <label class="block text-sm font-medium text-slate-700 mb-1">Aksi Verifikasi</label>
+               <select id="verif-status" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-blue outline-none bg-slate-50">
+                  <option value="Terverifikasi" ${item.StatusVerifikasi === 'Terverifikasi' ? 'selected' : ''}>Terima (Terverifikasi)</option>
+                  <option value="Perlu Perbaikan" ${item.StatusVerifikasi === 'Perlu Perbaikan' ? 'selected' : ''}>Minta Perbaikan</option>
+                  <option value="Ditolak" ${item.StatusVerifikasi === 'Ditolak' ? 'selected' : ''}>Tolak</option>
+                  <option value="Menunggu Verifikasi" ${item.StatusVerifikasi === 'Menunggu Verifikasi' ? 'selected' : ''}>Kembalikan ke Menunggu</option>
+               </select>
+             </div>
+             <div>
+               <label class="block text-sm font-medium text-slate-700 mb-1">Catatan (Opsional, Wajib jika ditolak/perbaikan)</label>
+               <textarea id="verif-catatan" rows="3" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-blue outline-none" placeholder="Alasan penolakan atau perbaikan yang dibutuhkan...">${item.CatatanVerifikasi || ''}</textarea>
+             </div>
+          </div>
+          
+          <div class="mt-8 flex justify-end gap-3">
+             <button onclick="document.getElementById('verify-modal').classList.add('hide')" class="px-6 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium transition">Batal</button>
+             <button onclick="app.submitVerification('${item.ID}')" class="px-6 py-2 rounded-lg bg-brand-navy text-white font-medium hover:bg-slate-800 transition shadow-lg">Simpan Keputusan</button>
+          </div>
+        `;
+        modal.classList.remove('hide');
+      },
+
+      submitVerification: async function(id) {
+        const status = document.getElementById('verif-status').value;
+        const catatan = document.getElementById('verif-catatan').value;
+
+        if ((status === 'Ditolak' || status === 'Perlu Perbaikan') && !catatan.trim()) {
+          this.toast('Catatan wajib diisi untuk status ditolak atau perbaikan.', 'error');
+          return;
+        }
+
+        try {
+          await this.api('updateAchievementStatus', { id, status, catatan });
+          this.toast('Status berhasil diperbarui.', 'success');
+          document.getElementById('verify-modal').classList.add('hide');
+          this.fetchAdminData(); // refresh list
+        } catch (e) {}
+      },
+
+      renderAdminReport: function(container) {
+        container.innerHTML = `
+          <div class="mb-6">
+            <h2 class="text-2xl font-bold text-brand-navy">Laporan & Unduh</h2>
+            <p class="text-slate-500 text-sm">Hasilkan laporan dalam format PDF atau CSV sesuai filter.</p>
+          </div>
+
+          <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 max-w-4xl">
+            <h3 class="font-semibold text-slate-700 mb-4 border-b pb-2">Atur Filter Laporan</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">Tahun Ajaran</label>
+                <select id="rep-tahun" class="w-full px-3 py-2 border border-slate-300 rounded outline-none text-sm">
+                  <option value="">Semua Tahun Ajaran</option>
+                  <option value="2025/2026">2025/2026</option>
+                  <option value="2026/2027">2026/2027</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">Kategori</label>
+                <select id="rep-kategori" class="w-full px-3 py-2 border border-slate-300 rounded outline-none text-sm">
+                  <option value="">Semua Kategori</option>
+                  <option value="Akademik">Akademik</option>
+                  <option value="Non Akademik">Non Akademik</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">Tingkat</label>
+                <select id="rep-tingkat" class="w-full px-3 py-2 border border-slate-300 rounded outline-none text-sm">
+                  <option value="">Semua Tingkat</option>
+                  <option value="Kecamatan">Kecamatan</option>
+                  <option value="Kabupaten/Kota">Kabupaten/Kota</option>
+                  <option value="Provinsi">Provinsi</option>
+                  <option value="Nasional">Nasional</option>
+                  <option value="Internasional">Internasional</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">Status Verifikasi</label>
+                <select id="rep-status" class="w-full px-3 py-2 border border-slate-300 rounded outline-none text-sm bg-green-50 text-green-800 font-semibold border-green-200">
+                  <option value="Terverifikasi" selected>Hanya Terverifikasi (Rekomendasi Laporan)</option>
+                  <option value="">Semua Status</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex gap-3 pt-4 border-t">
+              <button onclick="app.downloadReport('csv')" class="px-5 py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-file-csv"></i> Unduh CSV
+              </button>
+              <button onclick="app.downloadReport('pdf')" class="px-5 py-2.5 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-file-pdf"></i> Unduh PDF
+              </button>
+            </div>
+            <p class="text-xs text-slate-400 mt-4">* Laporan yang diunduh mencerminkan kombinasi filter secara langsung dari database backend.</p>
+          </div>
+        `;
+      },
+
+      downloadReport: async function(type) {
+        const filters = {
+          tahunAjaran: document.getElementById('rep-tahun').value,
+          kategori: document.getElementById('rep-kategori').value,
+          tingkat: document.getElementById('rep-tingkat').value,
+          status: document.getElementById('rep-status').value
+        };
+
+        try {
+          const data = await this.api('getAllAchievements', { filters });
+          
+          if (data.length === 0) {
+            this.toast('Tidak ada data yang cocok dengan filter.', 'error');
+            return;
+          }
+
+          if (type === 'csv') {
+            this.generateCSV(data, filters);
+          } else if (type === 'pdf') {
+            this.generatePDF(data, filters);
+          }
+        } catch (e) {}
+      },
+
+      generateCSV: function(data, filters) {
+        // Prepare headers (excluding internal IDs)
+        const headers = ["No", "Tahun Ajaran", "NIS", "Nama Siswa", "Kelas", "Kategori", "Cabang Lomba", "Nama Event", "Capaian", "Tingkat", "Penyelenggara", "Tanggal Pelaksanaan", "Status"];
+        
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // UTF-8 BOM
+        csvContent += headers.join(",") + "\r\n";
+
+        data.forEach((row, index) => {
+          let rowArray = [
+            index + 1,
+            `"${row.TahunAjaran}"`, `"${row.NIS}"`, `"${row.NamaSnapshot}"`, `"${row.KelasSnapshot}"`,
+            `"${row.Kategori}"`, `"${row.CabangLomba}"`, `"${row.NamaEvent.replace(/"/g, '""')}"`,
+            `"${row.Capaian}"`, `"${row.TingkatKejuaraan}"`, `"${row.NamaPenyelenggara.replace(/"/g, '""')}"`,
+            `"${row.TanggalPelaksanaan}"`, `"${row.StatusVerifikasi}"`
+          ];
+          csvContent += rowArray.join(",") + "\r\n";
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        const dateStr = new Date().toISOString().split('T')[0];
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Rekap_Prestasi_SD_Sudagaran_${dateStr}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        this.toast('CSV berhasil diunduh.', 'success');
+      },
+
+      generatePDF: function(data, filters) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('landscape');
+        
+        // Header
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.setTextColor(21, 43, 74); // Navy
+        doc.text("LAPORAN PRESTASI SISWA - SD SUDAGARAN", 14, 20);
+        
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        
+        // Filter Text
+        let filterText = `Tahun: ${filters.tahunAjaran || 'Semua'} | Kategori: ${filters.kategori || 'Semua'} | Tingkat: ${filters.tingkat || 'Semua'} | Status: ${filters.status || 'Semua'}`;
+        doc.text(`Filter diterapkan: ${filterText}`, 14, 28);
+        doc.text(`Total Data: ${data.length} pengajuan`, 14, 34);
+        doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID', {timeZone: 'Asia/Jakarta'})}`, 14, 40);
+
+        // Table
+        const tableColumn = ["No", "NIS", "Nama Siswa", "Kelas", "Kategori", "Cabang Lomba", "Nama Event", "Capaian", "Tingkat", "Status"];
+        const tableRows = [];
+
+        data.forEach((row, index) => {
+          tableRows.push([
+            index + 1, row.NIS, row.NamaSnapshot, row.KelasSnapshot,
+            row.Kategori, row.CabangLomba, row.NamaEvent,
+            row.Capaian, row.TingkatKejuaraan, row.StatusVerifikasi
+          ]);
+        });
+
+        doc.autoTable({
+          head: [tableColumn],
+          body: tableRows,
+          startY: 45,
+          styles: { fontSize: 8, font: "helvetica", cellPadding: 2 },
+          headStyles: { fillColor: [49, 94, 232], textColor: 255 }, // Brand Blue
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          didDrawPage: function (data) {
+            let str = "Halaman " + doc.internal.getNumberOfPages();
+            doc.setFontSize(8);
+            doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 10);
+          }
+        });
+
+        const dateStr = new Date().toISOString().split('T')[0];
+        doc.save(`Laporan_Prestasi_${dateStr}.pdf`);
+        this.toast('PDF berhasil diunduh.', 'success');
+      }
+    };
+
+    // Initialize App
+    document.addEventListener("DOMContentLoaded", () => {
+      app.init();
+    });
+  </script>
+</body>
+</html>
